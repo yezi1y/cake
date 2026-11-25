@@ -1,0 +1,661 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAKE DAY</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f4ddd3;
+            color: #805951;
+            font-family: "Courier New", sans-serif;
+            padding: 20px;
+        }
+
+        .bakery {
+            width: 440px;
+            max-width: 100%;
+            padding: 20px;
+            background: #fff1e8;
+            border: 3px solid #805951;
+            box-shadow: 6px 6px 0 #c49b8e;
+        }
+
+        h1 {
+            text-align: center;
+            letter-spacing: 5px;
+            margin: 5px 0;
+        }
+
+        p {
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .stage {
+            position: relative;
+            width: 100%;
+            margin: 20px auto;
+            border: 3px solid #bc9386;
+            overflow: hidden;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        #cake {
+            display: block;
+            width: 100%;
+            image-rendering: pixelated;
+        }
+
+        #decorations {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .emoji {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            line-height: 1;
+            font-family: "Apple Color Emoji",
+            "Segoe UI Emoji",
+            "Noto Color Emoji",
+            sans-serif;
+            pointer-events: auto;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .emoji:active {
+            cursor: grabbing;
+        }
+
+        .bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 8px 0 16px;
+        }
+
+        button {
+            flex: 1;
+            padding: 8px;
+            background: #fffaf4;
+            color: #805951;
+            border: 2px solid #d4b0a2;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: #f9ded5;
+        }
+
+        button.selected {
+            background: #f2c0ce;
+            border-color: #b16e86;
+        }
+
+        #emojiTools {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        #emojiTools button {
+            font-size: 25px;
+            font-family: "Apple Color Emoji",
+            "Segoe UI Emoji",
+            "Noto Color Emoji",
+            sans-serif;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #b16e86;
+        }
+
+        .actions button {
+            background: #805951;
+            color: white;
+            border-color: #805951;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 10px;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="bakery">
+
+    <h1>CAKE DAY</h1>
+    <p>✦ 今日份甜点 ✦</p >
+
+    <div class="stage" id="stage">
+        <canvas id="cake" width="128" height="112"></canvas>
+        <div id="decorations"></div>
+    </div>
+
+    <label>01 / 蛋糕口味</label>
+    <div class="bar" id="taste"></div>
+
+    <label>02 / 奶油颜色</label>
+    <div class="bar" id="cream"></div>
+
+    <label>03 / 蛋糕层数</label>
+    <div class="bar" id="layers"></div>
+
+    <label>04 / Emoji 装饰</label>
+    <div class="bar" id="emojiTools"></div>
+
+    <label>05 / 新装饰大小</label>
+
+    <input
+            type="range"
+            id="size"
+            min="16"
+            max="60"
+            value="28"
+    >
+
+    <p>
+        点击添加 · 拖动移动 · 双击删除
+    </p >
+
+    <div class="bar actions">
+        <button id="undo">撤销</button>
+        <button id="clear">重做</button>
+        <button id="random">随机</button>
+        <button id="save">保存</button>
+    </div>
+
+    <footer>MADE WITH SUGAR & LOVE</footer>
+
+</div>
+
+<script>
+
+    // =========================
+    // 01. 游戏初始化
+    // =========================
+
+    const canvas = document.getElementById("cake");
+    const ctx = canvas.getContext("2d");
+
+    const stage = document.getElementById("stage");
+    const decorationLayer = document.getElementById("decorations");
+
+    const tastes = [
+        ["香草", "#e8bd80"],
+        ["草莓", "#e79ca9"],
+        ["巧克力", "#98674e"],
+        ["抹茶", "#a5bc80"]
+    ];
+
+    const creams = [
+        ["奶白", "#fff3d8"],
+        ["粉色", "#f3b5cc"],
+        ["薄荷", "#b6dec5"],
+        ["香芋", "#cbb7e6"],
+        ["蓝莓", "#b4d4ed"]
+    ];
+
+    // 原生 Emoji 装饰
+
+    const emojis = [
+        "🍓", "🍒", "🎀", "🕯️", "🍫",
+        "⭐", "🫐", "🍋", "🍑", "🍇",
+        "🌸", "🌷", "🦋", "💗", "🍪",
+        "🍬", "🍊", "🥝", "🍍", "🧸",
+        "🍉", "🌼", "🍭", "✨", "🐰"
+    ];
+
+    let taste = 0;
+    let cream = 1;
+    let layers = 2;
+    let selectedEmoji = 0;
+
+    // =========================
+    // 02. 绘制像素蛋糕
+    // =========================
+
+    function rect(x, y, w, h, color) {
+
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, w, h);
+
+    }
+
+    function draw() {
+
+        // 背景
+
+        rect(0, 0, 128, 112, "#fbe4db");
+
+        for (let y = 0; y < 92; y += 8) {
+
+            for (let x = 0; x < 128; x += 8) {
+
+                if ((x / 8 + y / 8) % 2 === 0) {
+
+                    rect(x, y, 8, 8, "#f5d8cf");
+
+                }
+            }
+        }
+
+        // 桌面
+
+        rect(0, 92, 128, 20, "#d7b39a");
+        rect(15, 94, 98, 4, "#c39786");
+
+        // 托盘
+
+        rect(12, 88, 104, 4, "#9d7773");
+        rect(16, 85, 96, 5, "#fff9ed");
+
+        // 蛋糕
+
+        for (let i = 0; i < layers; i++) {
+
+            const w = 84 - i * 22;
+            const x = (128 - w) / 2;
+            const y = 85 - (i + 1) * 20;
+
+            // 轮廓
+
+            rect(x - 1, y + 2, w + 2, 18, "#956d60");
+
+            // 蛋糕胚
+
+            rect(x, y + 2, w, 16, tastes[taste][1]);
+
+            // 夹心
+
+            rect(x + 2, y + 12, w - 4, 3, creams[cream][1]);
+
+            // 奶油
+
+            rect(x, y + 1, w, 6, creams[cream][1]);
+
+            rect(x + 3, y - 1, w - 6, 4, creams[cream][1]);
+
+            // 高光
+
+            rect(x + 4, y, w - 8, 1, "#fffaf0");
+
+            // 奶油滴落
+
+            for (let j = 3; j < w - 4; j += 9) {
+
+                rect(
+                    x + j,
+                    y + 7,
+                    4,
+                    4,
+                    creams[cream][1]
+                );
+
+            }
+        }
+    }
+
+    // =========================
+    // 03. 创建工具按钮
+    // =========================
+
+    function options(id, array, get, set) {
+
+        const element = document.getElementById(id);
+
+        array.forEach((item, index) => {
+
+            const button = document.createElement("button");
+
+            button.textContent = Array.isArray(item)
+                ? item[0]
+                : item;
+
+            button.onclick = () => {
+
+                set(index);
+                sync();
+                draw();
+
+            };
+
+            element.appendChild(button);
+
+        });
+
+        element.refresh = () => {
+
+            [...element.children].forEach((button, index) => {
+
+                button.classList.toggle(
+                    "selected",
+                    index === get()
+                );
+
+            });
+        };
+    }
+
+    function sync() {
+
+        ["taste", "cream", "layers", "emojiTools"]
+            .forEach(id => {
+
+                document.getElementById(id).refresh();
+
+            });
+    }
+
+    options(
+        "taste",
+        tastes,
+        () => taste,
+        i => taste = i
+    );
+
+    options(
+        "cream",
+        creams,
+        () => cream,
+        i => cream = i
+    );
+
+    options(
+        "layers",
+        ["一层", "两层", "三层"],
+        () => layers - 1,
+        i => layers = i + 1
+    );
+
+    options(
+        "emojiTools",
+        emojis,
+        () => selectedEmoji,
+        i => selectedEmoji = i
+    );
+
+    // =========================
+    // 04. 添加原生 Emoji
+    // =========================
+
+    function addEmoji(x, y, symbol, size) {
+
+        const emoji = document.createElement("span");
+
+        emoji.className = "emoji";
+
+        emoji.textContent = symbol;
+
+        emoji.style.left = x + "%";
+        emoji.style.top = y + "%";
+
+        emoji.style.fontSize = size + "px";
+
+        decorationLayer.appendChild(emoji);
+
+        // 双击删除
+
+        emoji.addEventListener("dblclick", event => {
+
+            event.stopPropagation();
+            emoji.remove();
+
+        });
+
+        // 拖动装饰
+
+        emoji.addEventListener("pointerdown", event => {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            emoji.setPointerCapture(event.pointerId);
+
+            const bounds = decorationLayer.getBoundingClientRect();
+
+            const offsetX =
+                event.clientX -
+                bounds.left -
+                parseFloat(emoji.style.left) / 100 * bounds.width;
+
+            const offsetY =
+                event.clientY -
+                bounds.top -
+                parseFloat(emoji.style.top) / 100 * bounds.height;
+
+            function move(e) {
+
+                const x =
+                    (e.clientX - bounds.left - offsetX)
+                    / bounds.width * 100;
+
+                const y =
+                    (e.clientY - bounds.top - offsetY)
+                    / bounds.height * 100;
+
+                emoji.style.left =
+                    Math.max(0, Math.min(100, x)) + "%";
+
+                emoji.style.top =
+                    Math.max(0, Math.min(100, y)) + "%";
+
+            }
+
+            function stop() {
+
+                emoji.removeEventListener("pointermove", move);
+                emoji.removeEventListener("pointerup", stop);
+                emoji.removeEventListener("pointercancel", stop);
+
+            }
+
+            emoji.addEventListener("pointermove", move);
+            emoji.addEventListener("pointerup", stop);
+            emoji.addEventListener("pointercancel", stop);
+
+        });
+
+        emoji.addEventListener("click", event => {
+
+            event.stopPropagation();
+
+        });
+    }
+
+    // 点击蛋糕添加装饰
+
+    stage.addEventListener("click", event => {
+
+        const bounds = decorationLayer.getBoundingClientRect();
+
+        const x =
+            (event.clientX - bounds.left)
+            / bounds.width * 100;
+
+        const y =
+            (event.clientY - bounds.top)
+            / bounds.height * 100;
+
+        const size = Number(
+            document.getElementById("size").value
+        );
+
+        addEmoji(
+            x,
+            y,
+            emojis[selectedEmoji],
+            size
+        );
+
+    });
+
+    // =========================
+    // 05. 撤销与重做
+    // =========================
+
+    document.getElementById("undo").onclick = () => {
+
+        decorationLayer.lastElementChild?.remove();
+
+    };
+
+    document.getElementById("clear").onclick = () => {
+
+        decorationLayer.innerHTML = "";
+
+        taste = 0;
+        cream = 1;
+        layers = 2;
+
+        sync();
+        draw();
+
+    };
+
+    // =========================
+    // 06. 随机蛋糕
+    // =========================
+
+    document.getElementById("random").onclick = () => {
+
+        taste = Math.floor(Math.random() * tastes.length);
+
+        cream = Math.floor(Math.random() * creams.length);
+
+        layers = 1 + Math.floor(Math.random() * 3);
+
+        decorationLayer.innerHTML = "";
+
+        const symbol = emojis[
+            Math.floor(Math.random() * emojis.length)
+            ];
+
+        const width = 84 - (layers - 1) * 22;
+
+        const y = (85 - layers * 20 - 5) / 112 * 100;
+
+        for (
+            let x = 64 - width / 2 + 8;
+            x < 64 + width / 2 - 3;
+            x += 14
+        ) {
+
+            addEmoji(
+                x / 128 * 100,
+                y,
+                symbol,
+                24
+            );
+
+        }
+
+        sync();
+        draw();
+
+    };
+
+    // =========================
+    // 07. 保存蛋糕图片
+    // =========================
+
+    document.getElementById("save").onclick = () => {
+
+        const output = document.createElement("canvas");
+
+        output.width = 1024;
+        output.height = 896;
+
+        const out = output.getContext("2d");
+
+        out.imageSmoothingEnabled = false;
+
+        out.drawImage(
+            canvas,
+            0,
+            0,
+            output.width,
+            output.height
+        );
+
+        const scale =
+            output.width / decorationLayer.clientWidth;
+
+        out.textAlign = "center";
+        out.textBaseline = "middle";
+
+        decorationLayer.querySelectorAll(".emoji")
+            .forEach(emoji => {
+
+                const x =
+                    parseFloat(emoji.style.left)
+                    / 100 * output.width;
+
+                const y =
+                    parseFloat(emoji.style.top)
+                    / 100 * output.height;
+
+                const size =
+                    parseFloat(emoji.style.fontSize) * scale;
+
+                out.font =
+                    `${size}px "Apple Color Emoji",
+                    "Segoe UI Emoji",
+                    "Noto Color Emoji",
+                    sans-serif`;
+
+                out.fillText(
+                    emoji.textContent,
+                    x,
+                    y
+                );
+
+            });
+
+        const link = document.createElement("a");
+
+        link.download = "my-cake.png";
+
+        link.href = output.toDataURL("image/png");
+
+        link.click();
+
+    };
+
+    // 启动游戏
+
+    sync();
+    draw();
+
+</script>
+
+</body>
+</html>
